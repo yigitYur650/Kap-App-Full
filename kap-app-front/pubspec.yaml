@@ -1,0 +1,47 @@
+name: kapp_app
+description: "Kap-App - Aile alışveriş listesi yönetimi (PWA)"
+publish_to: 'none'
+version: 0.1.0+1
+
+environment:
+  sdk: ^3.8.1
+
+dependencies:
+  flutter:
+    sdk: flutter
+  flutter_localizations:
+    sdk: flutter
+
+  # UI
+  shadcn_flutter: ^0.0.52
+  shimmer: ^3.0.0
+  cupertino_icons: ^1.0.8
+
+  # State & DI
+  provider: ^6.1.2
+
+  # Network
+  http: ^1.2.2
+
+  # Utils
+  shared_preferences: ^2.3.2
+  intl: ^0.20.2
+  url_launcher: ^6.3.2
+  flutter_colorpicker: ^1.1.0
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^5.0.0
+
+flutter:
+  uses-material-design: true
+
+  assets:
+    - assets/lang/tr.json
+    - assets/lang/en.json
+
+  generate: true
+
+dependency_overrides:
+  vector_math: 2.3.0

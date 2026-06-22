@@ -1,0 +1,52 @@
+# ─── Monorepo: Kap-App ────────────────────────────────────────────────────────
+# Bu dosya tüm alt projeler için genel kuralları barındırır.
+# Alt projelerin kendi .gitignore dosyaları da aktiftir.
+
+# ── Çevre değişkenleri ve gizli veriler ──────────────────────────────────────
+.env
+.env.*
+!.env.example
+*.secret
+secrets/
+
+# ── IDE / Editör dosyaları ────────────────────────────────────────────────────
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# ── İşletim sistemi ───────────────────────────────────────────────────────────
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# ── Log dosyaları ─────────────────────────────────────────────────────────────
+*.log
+logs/
+
+# ─── Backend (kap-app-backend/) ───────────────────────────────────────────────
+# Go derleme çıktıları
+kap-app-backend/kapp-app
+kap-app-backend/cmd/api/api
+kap-app-backend/cmd/api/main
+kap-app-backend/api.exe
+*.exe
+*.test
+*.out
+coverage.html
+coverage.out
+
+# ─── Frontend (kap-app-front/) ────────────────────────────────────────────────
+# Flutter build & tool cache
+kap-app-front/build/
+kap-app-front/.dart_tool/
+kap-app-front/.flutter-plugins
+kap-app-front/.flutter-plugins-dependencies
+kap-app-front/*.iml
+
+# ── Test ve geliştirme yardımcıları ──────────────────────────────────────────
+api_tests.local.http
+
+# ── Docker (ileride eklenebilir) ──────────────────────────────────────────────
+docker-compose.override.yml

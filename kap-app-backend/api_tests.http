@@ -1,0 +1,491 @@
+### Kap-App Backend — HTTP İstek Testi
+### VS Code: REST Client eklentisi (humao.rest-client) ile çalıştırılır.
+### Değişkenleri kendi ortamınıza göre doldurun.
+
+@baseUrl    = http://localhost:8080
+@validToken = BURAYA_SUPABASE_JWT_TOKEN_YAPISTIR
+@expiredToken = BURAYA_SURESI_GECMIS_TOKEN_YAPISTIR
+
+# ─────────────────────────────────────────────────────────────────
+# 1) SAĞLIK KONTROLÜ (auth gerektirmeyen public endpoint)
+# Beklenti: 200 OK  { "status": "ok" }
+# ─────────────────────────────────────────────────────────────────
+### [PUBLIC] Health Check
+GET {{baseUrl}}/health
+Accept: application/json
+
+###
+
+# ─────────────────────────────────────────────────────────────────
+# 2) KORUNAN ENDPOINT — Geçerli token ile istek
+# Beklenti: 200 OK (handler'dan dönen payload)
+# ─────────────────────────────────────────────────────────────────
+### [AUTH - OK] Geçerli Bearer Token
+GET {{baseUrl}}/api/v1/me
+Accept: application/json
+Authorization: Bearer {{validToken}}
+
+###
+
+# ─────────────────────────────────────────────────────────────────
+# 3) KORUNAN ENDPOINT — Authorization header tamamen eksik
+# Beklenti: 401 Unauthorized
+#           { "error": "Yetkilendirme başlığı eksik veya hatalı." }
+# ─────────────────────────────────────────────────────────────────
+### [AUTH - 401] Header Eksik
+GET {{baseUrl}}/api/v1/me
+Accept: application/json
+
+###
+
+# ─────────────────────────────────────────────────────────────────
+# 4) KORUNAN ENDPOINT — "Bearer" prefix'i eksik / yanlış format
+# Beklenti: 401 Unauthorized
+#           { "error": "Yetkilendirme başlığı eksik veya hatalı." }
+# ─────────────────────────────────────────────────────────────────
+### [AUTH - 401] Yanlış Format (Token prefix'siz)
+GET {{baseUrl}}/api/v1/me
+Accept: application/json
+Authorization: {{validToken}}
+
+###
+
+# ─────────────────────────────────────────────────────────────────
+# 5) KORUNAN ENDPOINT — Token imzası geçersiz (manipüle edilmiş)
+# Beklenti: 401 Unauthorized
+#           { "error": "Geçersiz veya süresi dolmuş oturum. Lütfen tekrar giriş yapın." }
+# ─────────────────────────────────────────────────────────────────
+### [AUTH - 401] Geçersiz İmza
+GET {{baseUrl}}/api/v1/me
+Accept: application/json
+Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJmYWtlLXVzZXItaWQiLCJleHAiOjk5OTk5OTk5OTl9.INVALID_SIGNATURE
+
+###
+
+# ─────────────────────────────────────────────────────────────────
+# 6) KORUNAN ENDPOINT — Süresi dolmuş token
+# Beklenti: 401 Unauthorized
+#           { "error": "Geçersiz veya süresi dolmuş oturum. Lütfen tekrar giriş yapın." }
+# ─────────────────────────────────────────────────────────────────
+### [AUTH - 401] Süresi Dolmuş Token
+GET {{baseUrl}}/api/v1/me
+Accept: application/json
+Authorization: Bearer {{expiredToken}}
+
+###
+
+# ─────────────────────────────────────────────────────────────────
+# 7) KORUNAN ENDPOINT — Bearer değeri boş string
+# Beklenti: 401 Unauthorized
+#           { "error": "Yetkilendirme başlığı eksik veya hatalı." }
+# ─────────────────────────────────────────────────────────────────
+### [AUTH - 401] Boş Bearer Değeri
+GET {{baseUrl}}/api/v1/me
+Accept: application/json
+Authorization: Bearer 
+
+###
+
+# ═════════════════════════════════════════════════════════════════
+# AUTH — Profil Senkronizasyonu  (POST /api/v1/auth/sync-profile)
+# ═════════════════════════════════════════════════════════════════
+
+# ─────────────────────────────────────────────────────────────────
+# 8) Yeni kullanıcı — ilk kez profil oluşturma
+# Beklenti: 200 OK
+#   { "user_id": "...", "slug_id": "kap-bold-dawn-07",
+#     "display_name": "Ahmet", "is_new": true }
+# ─────────────────────────────────────────────────────────────────
+### [SYNC-PROFILE - OK] Yeni Profil
+POST {{baseUrl}}/api/v1/auth/sync-profile
+Content-Type: application/json
+Authorization: Bearer {{validToken}}
+
+{
+  "display_name": "Ahmet"
+}
+
+###
+
+# ─────────────────────────────────────────────────────────────────
+# 9) Var olan kullanıcı — aynı endpoint tekrar çağrılırsa (idempotent)
+# Beklenti: 200 OK — is_new: false, aynı slug_id döner
+# ─────────────────────────────────────────────────────────────────
+### [SYNC-PROFILE - OK] Var Olan Profil (Idempotent)
+POST {{baseUrl}}/api/v1/auth/sync-profile
+Content-Type: application/json
+Authorization: Bearer {{validToken}}
+
+{
+  "display_name": "Ahmet"
+}
+
+###
+
+# ─────────────────────────────────────────────────────────────────
+# 10) display_name eksik / boş gönderilirse
+# Beklenti: 400 Bad Request
+#           { "error": "display_name boş olamaz." }
+# ─────────────────────────────────────────────────────────────────
+### [SYNC-PROFILE - 400] display_name Eksik
+POST {{baseUrl}}/api/v1/auth/sync-profile
+Content-Type: application/json
+Authorization: Bearer {{validToken}}
+
+{
+  "display_name": ""
+}
+
+###
+
+# ─────────────────────────────────────────────────────────────────
+# 11) display_name 50 karakterden uzun
+# Beklenti: 400 Bad Request
+#           { "error": "display_name en fazla 50 karakter olabilir." }
+# ─────────────────────────────────────────────────────────────────
+### [SYNC-PROFILE - 400] display_name Çok Uzun
+POST {{baseUrl}}/api/v1/auth/sync-profile
+Content-Type: application/json
+Authorization: Bearer {{validToken}}
+
+{
+  "display_name": "BuIsimCokUzunVeElliBirKarakteriAsanBirStringDir!!"
+}
+
+###
+
+# ─────────────────────────────────────────────────────────────────
+# 12) Authorization header'ı eksik
+# Beklenti: 401 Unauthorized
+#           { "error": "Yetkilendirme başlığı eksik veya hatalı." }
+# ─────────────────────────────────────────────────────────────────
+### [SYNC-PROFILE - 401] Token Eksik
+POST {{baseUrl}}/api/v1/auth/sync-profile
+Content-Type: application/json
+
+{
+  "display_name": "Ahmet"
+}
+
+###
+
+# ─────────────────────────────────────────────────────────────────
+# 13) Geçersiz JSON gövdesi
+# Beklenti: 400 Bad Request
+#           { "error": "Geçersiz JSON formatı." }
+# ─────────────────────────────────────────────────────────────────
+### [SYNC-PROFILE - 400] Bozuk JSON
+POST {{baseUrl}}/api/v1/auth/sync-profile
+Content-Type: application/json
+Authorization: Bearer {{validToken}}
+
+{ display_name: Ahmet }
+
+###
+
+# ═════════════════════════════════════════════════════════════════
+# TENANT — Ev Yönetimi
+# ═════════════════════════════════════════════════════════════════
+# Not: @tenantId değişkenini ev oluşturduktan sonra dönen id ile doldurun.
+@tenantId = BURAYA_TENANT_UUID_YAPISTIR
+@inviteSlug = kap-fast-apple-92
+
+# ─────────────────────────────────────────────────────────────────
+# 14) Yeni ev oluştur (tam parametreler)
+# Beklenti: 201 Created
+#   { "id": "...", "name": "Yur Ailesi", "theme_color": "#E11D48",
+#     "owner_id": "...", "created_at": "..." }
+# ─────────────────────────────────────────────────────────────────
+### [TENANT - 201] Ev Oluştur
+POST {{baseUrl}}/api/v1/tenants
+Content-Type: application/json
+Authorization: Bearer {{validToken}}
+
+{
+  "name": "Yur Ailesi",
+  "theme_color": "#E11D48"
+}
+
+###
+
+# ─────────────────────────────────────────────────────────────────
+# 15) Ev oluştur — tema rengi verilmezse varsayılan #4F46E5 atanır
+# Beklenti: 201 Created, theme_color: "#4F46E5"
+# ─────────────────────────────────────────────────────────────────
+### [TENANT - 201] Ev Oluştur (Varsayılan Tema)
+POST {{baseUrl}}/api/v1/tenants
+Content-Type: application/json
+Authorization: Bearer {{validToken}}
+
+{
+  "name": "Test Evi"
+}
+
+###
+
+# ─────────────────────────────────────────────────────────────────
+# 16) Ev oluştur — ev adı boş
+# Beklenti: 400 Bad Request  { "error": "ev adı boş olamaz" }
+# ─────────────────────────────────────────────────────────────────
+### [TENANT - 400] Boş Ev Adı
+POST {{baseUrl}}/api/v1/tenants
+Content-Type: application/json
+Authorization: Bearer {{validToken}}
+
+{
+  "name": "",
+  "theme_color": "#4F46E5"
+}
+
+###
+
+# ─────────────────────────────────────────────────────────────────
+# 17) Ev oluştur — geçersiz hex renk
+# Beklenti: 400 Bad Request  { "error": "tema rengi geçersiz hex renk kodu..." }
+# ─────────────────────────────────────────────────────────────────
+### [TENANT - 400] Geçersiz Tema Rengi
+POST {{baseUrl}}/api/v1/tenants
+Content-Type: application/json
+Authorization: Bearer {{validToken}}
+
+{
+  "name": "Renkli Ev",
+  "theme_color": "kirmizi"
+}
+
+###
+
+# ─────────────────────────────────────────────────────────────────
+# 18) Kullanıcının üye olduğu evleri listele
+# Beklenti: 200 OK  [ { "id", "name", "theme_color", ... }, ... ]
+#           Üye olunan ev yoksa: []
+# ─────────────────────────────────────────────────────────────────
+### [TENANT - 200] Ev Listesi
+GET {{baseUrl}}/api/v1/tenants
+Authorization: Bearer {{validToken}}
+
+###
+
+# ─────────────────────────────────────────────────────────────────
+# 19) Slug ID ile üye ekle (başarılı)
+# @tenantId ve @inviteSlug değişkenlerini doldurun.
+# Beklenti: 200 OK
+#   { "tenant_id": "...", "user_id": "...", "slug_id": "kap-...", "display_name": "..." }
+# ─────────────────────────────────────────────────────────────────
+### [TENANT - 200] Üye Ekle (Slug ile)
+POST {{baseUrl}}/api/v1/tenants/{{tenantId}}/members
+Content-Type: application/json
+Authorization: Bearer {{validToken}}
+
+{
+  "slug_id": "{{inviteSlug}}"
+}
+
+###
+
+# ─────────────────────────────────────────────────────────────────
+# 20) Var olmayan slug_id ile davet
+# Beklenti: 404 Not Found
+#           { "error": "Bu kısa ID'ye sahip kullanıcı bulunamadı." }
+# ─────────────────────────────────────────────────────────────────
+### [TENANT - 404] Geçersiz Slug
+POST {{baseUrl}}/api/v1/tenants/{{tenantId}}/members
+Content-Type: application/json
+Authorization: Bearer {{validToken}}
+
+{
+  "slug_id": "kap-yok-boyle-99"
+}
+
+###
+
+# ─────────────────────────────────────────────────────────────────
+# 21) Zaten üye olan kullanıcıyı tekrar ekleme
+# Beklenti: 409 Conflict
+#           { "error": "Kullanıcı bu eve zaten üye." }
+# ─────────────────────────────────────────────────────────────────
+### [TENANT - 409] Zaten Üye
+POST {{baseUrl}}/api/v1/tenants/{{tenantId}}/members
+Content-Type: application/json
+Authorization: Bearer {{validToken}}
+
+{
+  "slug_id": "{{inviteSlug}}"
+}
+
+###
+
+# ─────────────────────────────────────────────────────────────────
+# 22) Üye olmayan biri başka bir eve davet göndermeye çalışır
+# Beklenti: 403 Forbidden
+#           { "error": "Bu işlem için yetkiniz yok." }
+# ─────────────────────────────────────────────────────────────────
+### [TENANT - 403] Yetkisiz Davet
+POST {{baseUrl}}/api/v1/tenants/00000000-0000-0000-0000-000000000000/members
+Content-Type: application/json
+Authorization: Bearer {{validToken}}
+
+{
+  "slug_id": "kap-fast-apple-92"
+}
+
+###
+
+# ═════════════════════════════════════════════════════════════════
+# PRODUCT — Ürün & Alışveriş Listesi
+# ═════════════════════════════════════════════════════════════════
+# Not: @productId değişkenini ürün ekledikten sonra dönen id ile doldurun.
+@productId = BURAYA_PRODUCT_UUID_YAPISTIR
+
+# ─────────────────────────────────────────────────────────────────
+# 23) Ürün ekle — tam parametreler
+# Beklenti: 201 Created  { id, tenant_id, name, price, ... }
+# ─────────────────────────────────────────────────────────────────
+### [PRODUCT - 201] Ürün Ekle (Tam)
+POST {{baseUrl}}/api/v1/products
+Content-Type: application/json
+Authorization: Bearer {{validToken}}
+
+{
+  "tenant_id": "{{tenantId}}",
+  "name": "Süt",
+  "price": 42.50,
+  "market_name": "Migros",
+  "category": "Süt Ürünleri",
+  "quantity": 3,
+  "expiration_date": "2025-12-31"
+}
+
+###
+
+# ─────────────────────────────────────────────────────────────────
+# 24) Ürün ekle — sadece zorunlu alan (name)
+# Beklenti: 201 Created, quantity:1, status:"var", nullable alanlar yok
+# ─────────────────────────────────────────────────────────────────
+### [PRODUCT - 201] Ürün Ekle (Minimal)
+POST {{baseUrl}}/api/v1/products
+Content-Type: application/json
+Authorization: Bearer {{validToken}}
+
+{
+  "tenant_id": "{{tenantId}}",
+  "name": "Ekmek"
+}
+
+###
+
+# ─────────────────────────────────────────────────────────────────
+# 25) Ürün ekle — boş ürün adı
+# Beklenti: 400 Bad Request  { "error": "ürün adı boş olamaz" }
+# ─────────────────────────────────────────────────────────────────
+### [PRODUCT - 400] Boş Ürün Adı
+POST {{baseUrl}}/api/v1/products
+Content-Type: application/json
+Authorization: Bearer {{validToken}}
+
+{
+  "tenant_id": "{{tenantId}}",
+  "name": ""
+}
+
+###
+
+# ─────────────────────────────────────────────────────────────────
+# 26) Ürün ekle — geçersiz tarih formatı
+# Beklenti: 400 Bad Request  { "error": "son kullanma tarihi YYYY-MM-DD formatında..." }
+# ─────────────────────────────────────────────────────────────────
+### [PRODUCT - 400] Geçersiz Tarih
+POST {{baseUrl}}/api/v1/products
+Content-Type: application/json
+Authorization: Bearer {{validToken}}
+
+{
+  "tenant_id": "{{tenantId}}",
+  "name": "Yoğurt",
+  "expiration_date": "31-12-2025"
+}
+
+###
+
+# ─────────────────────────────────────────────────────────────────
+# 27) Ürün ekle — üye olmayan tenant
+# Beklenti: 403 Forbidden  { "error": "Bu işlem için yetkiniz yok." }
+# ─────────────────────────────────────────────────────────────────
+### [PRODUCT - 403] Yetkisiz Ev
+POST {{baseUrl}}/api/v1/products
+Content-Type: application/json
+Authorization: Bearer {{validToken}}
+
+{
+  "tenant_id": "00000000-0000-0000-0000-000000000000",
+  "name": "Peynir"
+}
+
+###
+
+# ─────────────────────────────────────────────────────────────────
+# 28) Eve ait ürünleri listele
+# Beklenti: 200 OK  [ { id, name, status, ... }, ... ]
+#           Ürün yoksa []
+# ─────────────────────────────────────────────────────────────────
+### [PRODUCT - 200] Ürün Listesi
+GET {{baseUrl}}/api/v1/products?tenant_id={{tenantId}}
+Authorization: Bearer {{validToken}}
+
+###
+
+# ─────────────────────────────────────────────────────────────────
+# 29) Durum güncelle — geçerli statü
+# Beklenti: 200 OK  { ..., "status": "azaldı", ... }
+# ─────────────────────────────────────────────────────────────────
+### [PRODUCT - 200] Durum Güncelle (azaldı)
+PATCH {{baseUrl}}/api/v1/products/{{productId}}/status
+Content-Type: application/json
+Authorization: Bearer {{validToken}}
+
+{
+  "status": "azaldı"
+}
+
+###
+
+# ─────────────────────────────────────────────────────────────────
+# 30) Durum güncelle — geçersiz statü değeri
+# Beklenti: 400 Bad Request
+#           { "error": "durum \"var\", \"azaldı\" veya \"yok\" olmalıdır" }
+# ─────────────────────────────────────────────────────────────────
+### [PRODUCT - 400] Geçersiz Statü
+PATCH {{baseUrl}}/api/v1/products/{{productId}}/status
+Content-Type: application/json
+Authorization: Bearer {{validToken}}
+
+{
+  "status": "bitti"
+}
+
+###
+
+# ─────────────────────────────────────────────────────────────────
+# 31) Var olmayan ürünün durumunu güncelle
+# Beklenti: 404 Not Found  { "error": "Ürün bulunamadı." }
+# ─────────────────────────────────────────────────────────────────
+### [PRODUCT - 404] Ürün Yok (Güncelle)
+PATCH {{baseUrl}}/api/v1/products/00000000-0000-0000-0000-000000000000/status
+Content-Type: application/json
+Authorization: Bearer {{validToken}}
+
+{
+  "status": "yok"
+}
+
+###
+
+# ─────────────────────────────────────────────────────────────────
+# 32) Ürün sil
+# Beklenti: 204 No Content (gövde yok)
+# ─────────────────────────────────────────────────────────────────
+### [PRODUCT - 204] Ürün Sil
+DELETE {{baseUrl}}/api/v1/products/{{productId}}
+Authorization: Bearer {{validToken}}
+
+###
