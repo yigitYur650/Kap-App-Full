@@ -157,6 +157,51 @@ SOLID, Clean Architecture, i18n ve kütüphane standartları.
 
 ---
 
+## 16. Günlük Oturum Günlüğü (Daily Session Log) Tut
+
+> Her çalışma oturumunun sonunda, nerede kalındığını kaydet.
+
+- `SESSION_LOG.md` dosyası oluştur ve her oturum sonunda güncelle.
+- Günlük formatta yaz: **Tarih → Ne yapıldı → Sonraki adım**.
+- AI oturumun başında bu log'u okuyarak kaldığı yerden devam eder.
+- Agentic AI oturum kapanmadan önce `SESSION_LOG.md`'yi günceller ve commit eder.
+- Her commit'in sonuna günlük log girdisi otomatik eklenir.
+
+### Örnek format:
+```markdown
+## 2026-06-22
+- Repository struct'ları interface'e dönüştürüldü
+- Integration testleri yazıldı (5 senaryo)
+- Push: `4a4283d`
+- **Sıradaki**: Provider/State testleri, Cross-Tenant izolasyon testleri
+```
+
+---
+
+## 17. Cross-Tenant İzolasyon Testleri (Öncelikli)
+
+> Multi-tenant sistemlerde tenant'lar arası veri sızıntısı en kritik güvenlik açığıdır.
+
+- Her repository katmanındaki SQL sorgularında `WHERE tenant_id = ...` kontrolü zorunludur.
+- Integration testleri şu senaryoları kapsamalıdır:
+  - Kullanıcı A, Tenant B'nin verilerini görememeli
+  - Farklı tenant'a ait ürünler listelenirken karışmamalı
+  - Tenant üyesi olmayan kullanıcı işlem yapamamalı
+
+---
+
+## 18. Flutter Provider/State Testleri (Öncelikli)
+
+> State yönetiminin test edilmemesi, UI hatalarının en büyük kaynağıdır.
+
+- Provider'lar ayrı ayrı test edilebilir olmalı (bağımlılıklar inject edilmeli)
+- Her Provider için en az 3 test:
+  1. Başarılı state geçişi
+  2. Hata state'i (error handling)
+  3. Loading state'i
+
+---
+
 ## Özet: İnsan + AI İş Birliği Modeli
 
 ```

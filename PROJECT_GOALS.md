@@ -105,5 +105,35 @@
 
 ---
 
+## 7. Production Hazırlık (Teknik Borç)
+
+> **Dış değerlendirme**: "Mimarini, çoklu kiracılık (multi-tenant) altyapını ve Agentic AI vizyonunu çok beğendim.
+> Ancak bu yapay zeka ajanlarının projeye dahil olabilmesi ve güvenli büyüme için bazı testler acilen eklenmeli."
+
+### 7.1. Flutter Provider/State Testleri (Yapılacak)
+- Provider'lar ayrı ayrı test edilebilir hale getirilecek (dependency injection)
+- Her Provider için 3 temel test:
+  1. Başarılı state geçişi
+  2. Hata state'i (error handling)
+  3. Loading state'i
+
+### 7.2. Cross-Tenant Veritabanı İzolasyon Testleri (Yapılacak)
+- Tüm SQL sorgularında `WHERE tenant_id = ...` kontrolü test edilecek
+- Test senaryoları:
+  - Kullanıcı A, Tenant B'nin verilerini görmemeli
+  - Tenant üyesi olmayan kullanıcı işlem yapamamalı
+  - Farklı tenant verileri karışmamalı
+
+### 7.3. Backend Unit Test İyileştirmeleri
+- Mevcut mock'ların kapsamı genişletilecek
+- Edge case'ler eklenecek
+
+### 7.4. CI/CD Pipeline Entegrasyonu (Gelecek)
+- GitHub Actions ile tüm testlerin otomatik çalıştırılması
+- Statik analiz ve güvenlik taraması
+
+---
+
 > 📝 **Not**: Bu doküman, proje geliştirme sürecinde güncellenmeye devam edecektir.
 > Her yeni özellik ve karar, ilgili mimari dokümanlara (ARCHITECTURE_TOPOLOGY.md, task.md) da yansıtılacaktır.
+> Ayrıca günlük çalışma logu için `SESSION_LOG.md` dosyası tutulmaktadır.
