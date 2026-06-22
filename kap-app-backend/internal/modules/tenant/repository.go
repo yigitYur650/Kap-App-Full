@@ -12,22 +12,27 @@ import (
 
 const pgUniqueViolationCode = "23505"
 
-// Repository, tenant modülünün veritabanı erişim katmanıdır.
-type Repository struct {
+// Repository, tenant modulunun veritabani erisim arayuzudur.
+type Repository interface {
+	CreateTenant(ctx context.Context, ownerID, name, themeColor string) (*Tenant, error)
+	ListByUserID(ctx context.Context, userID string) ([]Tenant, error)
+	FindUserBySlugID(ctx context.Context, slugID string) (*ProfileRef, error)
+	AddMember(ctx context.Context, tenantID, userID string) error
+	IsTenantMember(ctx context.Context, tenantID, userID string) (bool, error)
+}
+
+// pgRepository, PostgreSQL gercek implementasyonudur.
+type pgRepository struct {
 	db *pgxpool.Pool
 }
 
-// NewRepository, Repository örneği oluşturur.
-func NewRepository(db *pgxpool.Pool) *Repository {
-	return &Repository{db: db}
+// NewRepository, Repository ornegi olusturur.
+func NewRepository(db *pgxpool.Pool) *pgRepository {
+	return &pgRepository{db: db}
 }
 
-// CreateTenant, tek bir transaction içinde iki işlem yapar:
-//  1. tenants tablosuna yeni kayıt ekler.
-//  2. Oluşturanı tenant_memberships'e "owner" rolüyle ekler.
-//
-// İkisi atomik — biri başarısız olursa rollback yapılır.
-func (r *Repository) CreateTenant(ctx context.Context, ownerID, name, themeColor string) (*Tenant, error) {
+// CreateTenat, tek bir transaction icinde iki islem yapar.
+func (r *pgRepository) CreateTenant(ctx context.Context, ownerID, name, themeColor string) (*Tenant, error) {
 	tx, err := r.db.BeginTx(ctx, pgx.TxOptions{})
 	if err != nil {
 		return nil, fmt.Errorf("tenant.Repository.CreateTenant: BeginTx: %w", err)
@@ -38,7 +43,6 @@ func (r *Repository) CreateTenant(ctx context.Context, ownerID, name, themeColor
 		}
 	}()
 
-	// 1. Evi oluştur.
 	const insertTenant = `
 		INSERT INTO tenants (name, theme_color, owner_id, created_at)
 		VALUES ($1, $2, $3, NOW())
@@ -51,7 +55,6 @@ func (r *Repository) CreateTenant(ctx context.Context, ownerID, name, themeColor
 		return nil, fmt.Errorf("tenant.Repository.CreateTenant: insert tenant: %w", err)
 	}
 
-	// 2. Oluşturanı üyeliğe ekle.
 	const insertMember = `
 		INSERT INTO tenant_memberships (tenant_id, user_id, role, created_at)
 		VALUES ($1, $2, 'owner', NOW())`
@@ -67,8 +70,8 @@ func (r *Repository) CreateTenant(ctx context.Context, ownerID, name, themeColor
 	return &t, nil
 }
 
-// ListByUserID, kullanıcının üye olduğu tüm evleri döner.
-func (r *Repository) ListByUserID(ctx context.Context, userID string) ([]Tenant, error) {
+// ListByUserID, kullanicinin uye oldugu tum evleri dondurur.
+func (r *pgRepository) ListByUserID(ctx context.Context, userID string) ([]Tenant, error) {
 	const q = `
 		SELECT t.id, t.name, t.theme_color, t.owner_id, t.created_at
 		FROM   tenants t
@@ -97,9 +100,8 @@ func (r *Repository) ListByUserID(ctx context.Context, userID string) ([]Tenant,
 	return tenants, nil
 }
 
-// FindUserBySlugID, profiles tablosunda slug_id'ye göre kullanıcı arar.
-// Bulunamazsa (nil, nil) döner.
-func (r *Repository) FindUserBySlugID(ctx context.Context, slugID string) (*ProfileRef, error) {
+// FindUserBySlugID, profiles tablosunda slug_id'ye gore kullanici arar.
+func (r *pgRepository) FindUserBySlugID(ctx context.Context, slugID string) (*ProfileRef, error) {
 	const q = `
 		SELECT id, display_name
 		FROM   profiles
@@ -109,7 +111,7 @@ func (r *Repository) FindUserBySlugID(ctx context.Context, slugID string) (*Prof
 	var p ProfileRef
 	err := r.db.QueryRow(ctx, q, slugID).Scan(&p.UserID, &p.DisplayName)
 	if errors.Is(err, pgx.ErrNoRows) {
-		return nil, nil // bulunamadı — hata değil
+		return nil, nil
 	}
 	if err != nil {
 		return nil, fmt.Errorf("tenant.Repository.FindUserBySlugID: %w", err)
@@ -118,9 +120,8 @@ func (r *Repository) FindUserBySlugID(ctx context.Context, slugID string) (*Prof
 	return &p, nil
 }
 
-// AddMember, kullanıcıyı tenant_memberships tablosuna ekler.
-// Kullanıcı zaten üyeyse ErrAlreadyMember döner.
-func (r *Repository) AddMember(ctx context.Context, tenantID, userID string) error {
+// AddMember, kullaniciyi tenant_memberships tablosuna ekler.
+func (r *pgRepository) AddMember(ctx context.Context, tenantID, userID string) error {
 	const q = `
 		INSERT INTO tenant_memberships (tenant_id, user_id, role, created_at)
 		VALUES ($1, $2, 'member', NOW())`
@@ -136,9 +137,8 @@ func (r *Repository) AddMember(ctx context.Context, tenantID, userID string) err
 	return nil
 }
 
-// IsTenantMember, userID'nin belirtilen ev'e üye olup olmadığını kontrol eder.
-// Handler katmanında yetki kontrolü için kullanılır.
-func (r *Repository) IsTenantMember(ctx context.Context, tenantID, userID string) (bool, error) {
+// IsTenantMember, userID'nin belirtilen eve uye olup olmadigini kontrol eder.
+func (r *pgRepository) IsTenantMember(ctx context.Context, tenantID, userID string) (bool, error) {
 	const q = `
 		SELECT 1 FROM tenant_memberships
 		WHERE  tenant_id = $1 AND user_id = $2
@@ -156,7 +156,6 @@ func (r *Repository) IsTenantMember(ctx context.Context, tenantID, userID string
 	return true, nil
 }
 
-// isUniqueViolation, PostgreSQL unique constraint ihlalini yakalar.
 func isUniqueViolation(err error) bool {
 	var pgErr *pgconn.PgError
 	return errors.As(err, &pgErr) && pgErr.Code == pgUniqueViolationCode

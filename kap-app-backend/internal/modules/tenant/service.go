@@ -45,11 +45,11 @@ var ErrAlreadyMember = errors.New("kullanıcı bu eve zaten üye")
 
 // Service, tenant modülünün iş mantığı katmanıdır.
 type Service struct {
-	repo *Repository
+	repo Repository
 }
 
 // NewService, Service örneği oluşturur.
-func NewService(repo *Repository) *Service {
+func NewService(repo Repository) *Service {
 	return &Service{repo: repo}
 }
 

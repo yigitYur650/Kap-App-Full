@@ -84,7 +84,7 @@ func main() {
 
 	// 4. Router'ı kur ve rotaları bağla; GC goroutine'i başlat.
 	mux := http.NewServeMux()
-	productRepo := registerRoutes(mux, db)
+	var productRepo product.Repository = registerRoutes(mux, db)
 	product.StartGarbageCollector(ctx, productRepo)
 
 	// 5. Sunucu portunu env'den oku; varsayılan 8080.
@@ -118,12 +118,11 @@ func main() {
 	log.Println("main: sunucu başarıyla durduruldu.")
 }
 
-
 // registerRoutes, tüm HTTP rotalarını mux'a kaydeder.
 // Public ve korunan rotalar burada ayrıştırılır.
 // db parametresi, modül repository'leri için bağımlılık enjeksiyonu sağlar.
 // productRepo döner — GC goroutine tarafından kullanılır.
-func registerRoutes(mux *http.ServeMux, db *config.Database) *product.Repository {
+func registerRoutes(mux *http.ServeMux, db *config.Database) product.Repository {
 	// ── Public rotalar ────────────────────────────────────────────
 	mux.HandleFunc("GET /health", handleHealth)
 

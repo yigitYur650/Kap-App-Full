@@ -14,7 +14,7 @@ import (
 //   - Sonrasında her 24 saatte bir
 //
 // ctx iptal edildiğinde (örn. OS SIGTERM) goroutine düzgünce durur.
-func StartGarbageCollector(ctx context.Context, repo *Repository) {
+func StartGarbageCollector(ctx context.Context, repo Repository) {
 	go func() {
 		log.Println("product.GarbageCollector: başlatıldı (ilk çalışma 30 sn sonra).")
 
@@ -45,7 +45,7 @@ func StartGarbageCollector(ctx context.Context, repo *Repository) {
 }
 
 // runGC, 30 günden eski soft-deleted ürünleri kalıcı olarak siler.
-func runGC(ctx context.Context, repo *Repository) {
+func runGC(ctx context.Context, repo Repository) {
 	deleted, err := repo.DeleteExpiredSoftDeleted(ctx)
 	if err != nil {
 		log.Printf("product.GarbageCollector: GC hatası: %v", err)
